@@ -441,6 +441,17 @@ function renderChapterStudy() {
     ? 'goHome()'
     : (cv.type === 'gyeollon' ? 'renderGyeollonList()' : 'renderMouseList()');
 
+  const viewKey = `${cv.type}:${cv.chIdx}:${cv.sentIdx}:${cv.mode}`;
+  const existingBody = container ? container.querySelector('#study-body') : null;
+  if (existingBody && container.dataset.viewKey === viewKey) {
+    const prevScrollTop = existingBody.scrollTop;
+    existingBody.classList.remove('fade-in');
+    existingBody.innerHTML = bodyHtml;
+    existingBody.scrollTop = prevScrollTop;
+    return;
+  }
+  if (container) container.dataset.viewKey = viewKey;
+
   container.innerHTML = `
     <div class="inner-header">
       <button class="back-btn" onclick="${backAction}">←</button>
@@ -606,6 +617,7 @@ function renderSwapDrillUI(rawEn, rawKr, itemKey, swapContext, counterLabel, pre
     const isActiveLoop = isLooping && _autoShadow.activeSwapIdx === idx;
     return `
       <div class="swap-item ${isRev ? 'revealed' : ''} ${isActiveLoop ? 'active-loop' : ''}"
+        id="swap-item-${idx}"
         onclick="swapRevealOne(${idx}, '${modeScope}')">
         <div class="swap-item-top">
           <span class="swap-step-pill">${isRev ? `✓ 변주 ${idx + 1} 입트임 완료` : `⚡ 변주 ${idx + 1} · 단어 교체`}</span>
@@ -668,6 +680,7 @@ function renderSwapDrillUI(rawEn, rawKr, itemKey, swapContext, counterLabel, pre
           <input id="mySwapInput" class="my-swap-input" type="text"
             value="${escAttr(userCustom)}"
             placeholder="예: ${escAttr(swapSet.starter)}..."
+            oninput="SlotSwapEngine.saveUserSwap('${itemKey}', this.value)"
             onchange="SlotSwapEngine.saveUserSwap('${itemKey}', this.value)" />
           <button class="tts-btn small" onclick="swapPlayMySentence('${itemKey}', this)">🔊 내 문장 발음</button>
         </div>
@@ -692,6 +705,23 @@ function renderSwapMode(ch) {
     'swapChPrev()', 'swapChNext()', cv.sentIdx > 0,
     'chapter'
   );
+}
+
+function ensureSwapItemVisible(idx, scope) {
+  const bodyId = scope === 'pattern' ? 'pat-study-body' : 'study-body';
+  const scrollEl = document.getElementById(bodyId);
+  const itemEl = document.getElementById('swap-item-' + idx);
+  if (!scrollEl || !itemEl) return;
+  const bodyRect = scrollEl.getBoundingClientRect();
+  const itemRect = itemEl.getBoundingClientRect();
+  const pad = 14;
+  if (itemRect.bottom > bodyRect.bottom - pad) {
+    const delta = itemRect.bottom - (bodyRect.bottom - pad);
+    scrollEl.scrollTo({ top: scrollEl.scrollTop + delta, behavior: 'smooth' });
+  } else if (itemRect.top < bodyRect.top + pad) {
+    const delta = (bodyRect.top + pad) - itemRect.top;
+    scrollEl.scrollTo({ top: Math.max(0, scrollEl.scrollTop - delta), behavior: 'smooth' });
+  }
 }
 
 function swapRevealOne(idx, scope) {
@@ -723,6 +753,8 @@ function swapRevealOne(idx, scope) {
 
   if (scope === 'pattern') renderPatternStudy();
   else renderChapterStudy();
+
+  ensureSwapItemVisible(idx, scope);
 
   if (swapSet.swaps[idx]) {
     AudioEngine.speak(swapSet.swaps[idx].en);
@@ -842,6 +874,7 @@ async function toggleAutoSwapLoop(scope) {
       _autoShadow.activeSwapIdx = i;
       revMap[i] = true;
       if (scope === 'pattern') renderPatternStudy(); else renderChapterStudy();
+      ensureSwapItemVisible(i, scope);
 
       const swInfo = await AudioEngine.speak(swapSet.swaps[i].en);
       if (!_autoShadow.running || _autoShadow.token !== myToken) break;
@@ -1961,7 +1994,21 @@ function renderPatternStudy() {
     </div>`;
   }
 
-  document.getElementById('pattern-content').innerHTML = `
+  const patContainer = document.getElementById('pattern-content');
+  const patViewKey = `${pv.dayIdx}:${pv.cardIdx}:${sm}`;
+  const existingPatBody = patContainer ? patContainer.querySelector('#pat-study-body') : null;
+  if (existingPatBody && patContainer.dataset.viewKey === patViewKey) {
+    const prevScrollTop = existingPatBody.scrollTop;
+    const prevOuterScroll = patContainer.scrollTop;
+    existingPatBody.classList.remove('fade-in');
+    existingPatBody.innerHTML = bodyHtml;
+    existingPatBody.scrollTop = prevScrollTop;
+    patContainer.scrollTop = prevOuterScroll;
+    return;
+  }
+  if (patContainer) patContainer.dataset.viewKey = patViewKey;
+
+  patContainer.innerHTML = `
     <div style="display:flex;flex-direction:column;height:100%;overflow:hidden">
       <div class="inner-header">
         <button class="back-btn" onclick="stopAutoShadow();renderPatternHome()">←</button>
