@@ -222,6 +222,37 @@ function openSmartReview() {
   renderChapterStudy();
 }
 
+function openQuickSwap(course) {
+  stopAutoShadow();
+  VoiceRecorder.stopRecord();
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(n => n.classList.remove('active'));
+
+  if (course === 'pattern') {
+    const done = state.completedP.length;
+    const nextDayIdx = done > 0 ? Math.min(Math.max(...state.completedP), 29) : 0;
+    document.getElementById('page-pattern').classList.add('active');
+    document.getElementById('nav-pattern').classList.add('active');
+    state.currentTab = 'pattern';
+    patStartDay(nextDayIdx, 'swap');
+    return;
+  }
+
+  const type = course === 'mouse' ? 'mouse' : 'gyeollon';
+  const chapters = type === 'mouse' ? MOUSE_CHAPTERS : GYEOLLON_CHAPTERS;
+  const completedObj = type === 'mouse' ? state.completedM : state.completedG;
+  let targetCh = 0;
+  for (let ci = 0; ci < chapters.length; ci++) {
+    const allDone = chapters[ci].sentences.every((_, si) => completedObj[`${ci}-${si}`]);
+    if (!allDone) { targetCh = ci; break; }
+  }
+  document.getElementById('page-' + type).classList.add('active');
+  document.getElementById('nav-' + type).classList.add('active');
+  state.currentTab = type;
+  state.chapterView = { type, chIdx: targetCh, sentIdx: 0, mode: 'swap', revealed: false };
+  renderChapterStudy();
+}
+
 // ════════════════════════════════════════════════════════
 // HOME DASHBOARD
 // ════════════════════════════════════════════════════════
@@ -312,6 +343,7 @@ function renderChapterList(type, chapters, completedObj, container, badgeEl) {
       </div>
       <div class="ch-right">
         ${done100 ? '<div class="ch-done-badge">✓ 완료</div>' : `<div class="ch-pct">${chPct}%</div><div class="ch-pbar"><div class="ch-pfill" style="width:${chPct}%"></div></div>`}
+        <button type="button" class="ch-swap-mini-btn" onclick="event.stopPropagation(); ${type}OpenChapter(${ci}, 'swap')">🔄 갈아끼우기</button>
       </div>
     </div>`;
   });
@@ -319,12 +351,12 @@ function renderChapterList(type, chapters, completedObj, container, badgeEl) {
   container.innerHTML = html;
 }
 
-function gyeollonOpenChapter(ci) {
-  state.chapterView = { type: 'gyeollon', chIdx: ci, sentIdx: 0, mode: 'card', revealed: false };
+function gyeollonOpenChapter(ci, initialMode) {
+  state.chapterView = { type: 'gyeollon', chIdx: ci, sentIdx: 0, mode: initialMode || 'card', revealed: false };
   renderChapterStudy();
 }
-function mouseOpenChapter(ci) {
-  state.chapterView = { type: 'mouse', chIdx: ci, sentIdx: 0, mode: 'card', revealed: false };
+function mouseOpenChapter(ci, initialMode) {
+  state.chapterView = { type: 'mouse', chIdx: ci, sentIdx: 0, mode: initialMode || 'card', revealed: false };
   renderChapterStudy();
 }
 function renderGyeollonList() {
@@ -1718,6 +1750,7 @@ function renderPatternHome() {
         <div class="pat-day-pattern">${p.pattern}</div>
         <div class="pat-day-meaning">${p.meaning} · ${p.cards.length}문장</div>
       </div>
+      <button type="button" class="ch-swap-mini-btn" style="margin-top:0" onclick="event.stopPropagation(); patStartDay(${i}, 'swap')">🔄 갈아끼우기</button>
       ${isDone ? '<div class="pat-done-badge">✓</div>' : ''}
     </div>`;
   }).join('');
@@ -1728,7 +1761,7 @@ function renderPatternHome() {
         <div class="pat-eyebrow">TODAY · DAY ${todayP.id}</div>
         <div class="pat-hero-pattern">${todayP.pattern}</div>
         <div class="pat-hero-meaning">${todayP.meaning}</div>
-        <div class="pat-hero-start">연상 + 자동쉐도잉 시작 →</div>
+        <div class="pat-hero-start">연상 + 갈아끼우기 + 자동쉐도잉 시작 →</div>
       </div>
       <div class="pat-stats">
         <div class="pat-stat cyan"><div class="pat-stat-num">${done}</div><div class="pat-stat-lbl">완료일</div></div>
@@ -1740,9 +1773,9 @@ function renderPatternHome() {
     </div>`;
 }
 
-function patStartDay(dayIdx) {
+function patStartDay(dayIdx, initialMode) {
   stopAutoShadow();
-  state.patternView = { dayIdx, cardIdx: 0, flipped: false, mode: 'kr', studyMode: 'card', shadowStep: 1 };
+  state.patternView = { dayIdx, cardIdx: 0, flipped: false, mode: 'kr', studyMode: initialMode || 'card', shadowStep: 1 };
   renderPatternStudy();
 }
 

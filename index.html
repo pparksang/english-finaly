@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0a0a0f">
 <title>영어공부 — 이미지 연상 & 실전 쉐도잉 스튜디오</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/styles.css?v=20261115v3">
 </head>
 <body>
 <div id="app">
@@ -67,6 +67,20 @@
           <div class="sr-desc" id="home-sr-desc">어려움 체크 · 별표 문장을 이미지 연상으로 집중 복습해요</div>
         </div>
         <button class="sr-btn" type="button">복습 시작 →</button>
+      </div>
+
+      <!-- 1-Click Slot-Swapping Output Drill Launcher -->
+      <div class="home-swap-launcher">
+        <div class="hsl-top" onclick="openQuickSwap('gyeollon')">
+          <div class="hsl-badge">NEW · 실전 아웃풋 특화</div>
+          <div class="hsl-title">🔄 단어 갈아끼우기 · 응용 3연타 드릴</div>
+          <div class="hsl-desc">문장 뼈대는 고정하고 내 일상 단어만 바꿔 입에서 바로 튀어나오게 연습해요!</div>
+        </div>
+        <div class="hsl-btns">
+          <button type="button" class="hsl-chip gold" onclick="openQuickSwap('gyeollon')">📖 결론 갈아끼우기 →</button>
+          <button type="button" class="hsl-chip cyan" onclick="openQuickSwap('mouse')">💃 마우스 갈아끼우기 →</button>
+          <button type="button" class="hsl-chip green" onclick="openQuickSwap('pattern')">🎯 패턴 갈아끼우기 →</button>
+        </div>
       </div>
 
       <div class="section-title">📚 4단계 입체 학습 코스</div>
@@ -194,10 +208,10 @@
   </nav>
 </div>
 
-<script src="js/data.js"></script>
-<script src="js/audio.js"></script>
-<script src="js/visuals.js"></script>
-<script src="js/swaps.js"></script>
-<script src="js/app.js"></script>
+<script src="js/data.js?v=20261115v3"></script>
+<script src="js/audio.js?v=20261115v3"></script>
+<script src="js/visuals.js?v=20261115v3"></script>
+<script src="js/swaps.js?v=20261115v3"></script>
+<script src="js/app.js?v=20261115v3"></script>
 </body>
 </html>
