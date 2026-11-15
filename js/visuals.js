@@ -184,6 +184,33 @@ const VisualEngine = (() => {
     } catch (_) {}
   }
 
+  function renderInlineChunksHTML(rawEn) {
+    const chunks = splitCameraChunks(rawEn);
+    if (!chunks || chunks.length < 2) return '';
+    return `
+      <div class="inline-chunks" onclick="event.stopPropagation()">
+        ${chunks.map((c, idx) => `
+          <button type="button" class="ichunk ${c.cls}"
+            data-speak="${c.text.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"
+            onclick="event.stopPropagation();speakEl(this)">${c.text}</button>${idx < chunks.length - 1 ? '<span class="ichunk-sep">/</span>' : ''}
+        `).join('')}
+      </div>
+    `;
+  }
+
+  function toggleMemoBox(btn, itemId) {
+    const wrap = btn && btn.closest('.scene-cinema');
+    if (!wrap) return;
+    const row = wrap.querySelector('.memo-row');
+    if (!row) return;
+    const isHidden = row.style.display === 'none';
+    row.style.display = isHidden ? 'block' : 'none';
+    if (isHidden) {
+      const inp = row.querySelector('.memo-input');
+      if (inp) inp.focus();
+    }
+  }
+
   // Render Scene Cinema Card HTML (reusable in Card, Shadowing, Chunk Builder, Pattern)
   function renderSceneCardHTML(rawEn, rawKr, itemId, opts = {}) {
     const info = analyzeScene(rawEn, rawKr, opts.pattern || '');
@@ -193,7 +220,6 @@ const VisualEngine = (() => {
 
     const chunksHtml = showChunks && info.chunks.length > 0 ? `
       <div class="camera-flow">
-        <div class="camera-flow-title">🎥 영어 카메라 어순 (결론 클로즈업 → 배경 줌아웃)</div>
         <div class="camera-flow-track">
           ${info.chunks.map((c, idx) => `
             <div class="cam-chunk ${c.cls}" data-speak="${c.text.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}" onclick="event.stopPropagation();speakEl(this)">
@@ -203,17 +229,24 @@ const VisualEngine = (() => {
             ${idx < info.chunks.length - 1 ? '<span class="cam-arrow">→</span>' : ''}
           `).join('')}
         </div>
-        <div class="camera-flow-sub">💡 각 청크 블록을 탭하면 해당 의미 덩어리만 끊어서 들어볼 수 있어요</div>
       </div>
     ` : '';
 
+    const memoBtnHtml = (!compact && itemId) ? `
+      <button type="button" class="scene-memo-btn ${memo ? 'has-memo' : ''}"
+        onclick="event.stopPropagation();VisualEngine.toggleMemoBox(this, '${itemId}')">
+        💭 ${memo ? '메모수정' : '메모'}
+      </button>
+    ` : '';
+
     const memoHtml = (!compact && itemId) ? `
-      <div class="memo-row" onclick="event.stopPropagation()">
+      ${memo ? `<div class="memo-saved-pill" onclick="event.stopPropagation();VisualEngine.toggleMemoBox(this, '${itemId}')">💭 ${memo}</div>` : ''}
+      <div class="memo-row" style="display:none" onclick="event.stopPropagation()">
         <input class="memo-input" type="text" value="${memo.replace(/"/g, '&quot;')}"
-          placeholder="💭 나만의 연상 장면 메모 (예: 팀장님께 복도 나가자고 할 때)"
+          placeholder="나만의 연상 장면 메모 입력 후 엔터"
           onchange="VisualEngine.saveMemo('${itemId}', this.value)" />
       </div>
-    ` : (memo ? `<div class="memo-saved-pill">💭 내 연상: ${memo}</div>` : '');
+    ` : (memo ? `<div class="memo-saved-pill">💭 ${memo}</div>` : '');
 
     return `
       <div class="scene-cinema hue-${info.hue} ${compact ? 'compact' : ''}">
@@ -223,6 +256,7 @@ const VisualEngine = (() => {
             <div class="scene-tags">
               <span class="scene-tag">${info.tag}</span>
               <span class="scene-actor">${info.actorLabel}</span>
+              ${memoBtnHtml}
             </div>
             <div class="scene-cue">${info.cue}</div>
           </div>
@@ -237,6 +271,8 @@ const VisualEngine = (() => {
     analyzeScene,
     splitCameraChunks,
     buildPuzzleChunks,
+    renderInlineChunksHTML,
+    toggleMemoBox,
     renderSceneCardHTML,
     getMemo,
     saveMemo

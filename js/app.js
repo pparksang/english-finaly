@@ -493,43 +493,46 @@ function renderCardMode(ch) {
 
   const sceneHtml = VisualEngine.renderSceneCardHTML(s.en, s.kr, srsKey, {
     pattern: ch.pattern,
-    showChunks: !!cv.revealed
+    showChunks: false
   });
+
+  const isHard = srsInfo && srsInfo.level === 'hard';
+  const isLast = cv.sentIdx === ch.sentences.length - 1;
 
   const enHtml = cv.revealed ? `
     <div class="flash-en-wrap">
-      <div class="flash-en" id="flashEnText">${s.en}</div>
-      <div style="display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap">
-        <button class="tts-btn" data-speak="${escAttr(s.en)}" onclick="event.stopPropagation();speakEl(this)">🔊 원어민 발음 듣기</button>
-        <button class="tts-btn small" style="border-color:var(--border2);color:var(--text2);background:var(--bg3)"
-          onclick="event.stopPropagation();toggleAutoSpeak()">
-          ${state.autoSpeakCard ? '🔔 자동재생 ON' : '🔕 자동재생 OFF'}
-        </button>
-        ${isDone ? '<span style="font-size:11px;color:var(--green);font-weight:700">✓ 학습됨</span>' : ''}
+      <div class="flash-en" id="flashEnText" data-speak="${escAttr(s.en)}" onclick="event.stopPropagation();speakEl(this)">${s.en}</div>
+      ${VisualEngine.renderInlineChunksHTML(s.en)}
+      <div class="card-clean-actions" onclick="event.stopPropagation()">
+        <button class="tts-btn" data-speak="${escAttr(s.en)}" onclick="speakEl(this)">🔊 다시 듣기</button>
+        <button class="card-swap-pill-btn" onclick="chSetMode('swap')">🔄 단어 갈아끼우기</button>
       </div>
-      <button class="card-swap-jump-btn" onclick="event.stopPropagation();chSetMode('swap')">
-        🔄 이 뼈대로 단어 갈아끼우기 (3연속 응용) →
-      </button>
-      <div class="srs-rate-bar" onclick="event.stopPropagation()">
-        <button class="srs-btn hard" onclick="chRateAndNext('hard')">😓 어려움 · 복습함</button>
-        <button class="srs-btn good" onclick="chRateAndNext('good')">🙂 보통 · 3일뒤</button>
-        <button class="srs-btn easy" onclick="chRateAndNext('easy')">😎 완벽 · 7일뒤</button>
-      </div>
-      ${srsInfo ? `<div style="font-size:10px;color:var(--text3);margin-top:6px;text-align:center">최근 기억 상태: ${srsInfo.level === 'hard' ? '😓 집중복습 대상' : srsInfo.level === 'good' ? '🙂 3일 주기' : '😎 장기기억'}</div>` : ''}
     </div>
   ` : `<button class="flash-reveal-btn" onclick="event.stopPropagation();chReveal()">▶ 장면 떠올린 후 영어+발음 확인</button>`;
 
   return `
     ${sceneHtml}
     <div class="flash-inner ${isDone ? 'revealed' : ''}" ${!cv.revealed ? 'onclick="chReveal()"' : ''}>
-      <span class="flash-counter">${s._reviewTag ? s._reviewTag + ' · ' : ''}${cv.sentIdx + 1} / ${ch.sentences.length}</span>
+      <span class="flash-counter">
+        <button type="button" class="auto-speak-mini" title="자동 발음 재생 켜기/끄기" onclick="event.stopPropagation();toggleAutoSpeak()">${state.autoSpeakCard ? '🔔' : '🔕'}</button>
+        ${s._reviewTag ? s._reviewTag + ' · ' : ''}${cv.sentIdx + 1} / ${ch.sentences.length}
+      </span>
       ${cv.type !== 'review' ? `<button class="flash-bm ${isBm ? 'active' : ''}" onclick="chToggleBm(event,'${key}')">${isBm ? '★' : '☆'}</button>` : ''}
       <div class="flash-kr" style="margin-top:10px">${s.kr}</div>
       ${enHtml}
     </div>
     <div class="card-nav">
-      <button class="cnav-btn" onclick="chPrev()" ${cv.sentIdx === 0 ? 'disabled' : ''}>← 이전</button>
-      <button class="cnav-btn primary" onclick="chNext()" ${cv.sentIdx === ch.sentences.length - 1 ? 'disabled' : ''}>다음 문장 →</button>
+      <button class="cnav-btn" style="${cv.revealed ? 'flex:0 0 64px' : ''}" onclick="chPrev()" ${cv.sentIdx === 0 ? 'disabled' : ''}>←${cv.revealed ? '' : ' 이전'}</button>
+      ${cv.revealed ? `
+        <button class="cnav-btn hard-lite ${isHard ? 'marked' : ''}" onclick="chRateAndNext('hard')">
+          ${isHard ? '📌 복습함 저장됨' : '😓 헷갈림·복습'}
+        </button>
+        <button class="cnav-btn primary" onclick="chRateAndNext('good')">
+          ${isLast ? '✓ 완료' : '다음 문장 →'}
+        </button>
+      ` : `
+        <button class="cnav-btn primary" onclick="chNext()" ${isLast ? 'disabled' : ''}>다음 문장 →</button>
+      `}
     </div>
   `;
 }
@@ -1844,7 +1847,7 @@ function renderPatternStudy() {
     const showEn = (pv.mode === 'kr' && pv.flipped) || (pv.mode === 'en' && !pv.flipped);
 
     bodyHtml = `<div class="pat-study-wrap">
-      ${VisualEngine.renderSceneCardHTML(cleanEn, cleanKr, recKey, { pattern: p.pattern, showChunks: showEn })}
+      ${VisualEngine.renderSceneCardHTML(cleanEn, cleanKr, recKey, { pattern: p.pattern, showChunks: false })}
       <div class="pat-mode-toggle">
         <button class="pat-mode-btn ${pv.mode === 'kr' ? 'active' : ''}" onclick="patSetMode('kr')">🇰🇷 한국어 보고 영어로</button>
         <button class="pat-mode-btn ${pv.mode === 'en' ? 'active' : ''}" onclick="patSetMode('en')">🇺🇸 영어 보고 뜻 파악</button>
@@ -1855,9 +1858,12 @@ function renderPatternStudy() {
         <div class="pat-card-en">${backText}</div>
         ${!pv.flipped
           ? '<div class="pat-tap">탭하여 뒤집기 + 원어민 발음 듣기 👆</div>'
-          : `<div style="display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:14px;width:100%">
-              <button class="tts-btn" data-speak="${escAttr(cleanEn)}" onclick="event.stopPropagation();speakEl(this)">🔊 원어민 발음 듣기</button>
-              <button class="card-swap-jump-btn" style="margin-top:2px" onclick="event.stopPropagation();patStudyMode('swap')">🔄 이 패턴 단어 갈아끼우기 (3연속) →</button>
+          : `<div style="display:flex;flex-direction:column;align-items:center;gap:10px;margin-top:12px;width:100%" onclick="event.stopPropagation()">
+              ${VisualEngine.renderInlineChunksHTML(cleanEn)}
+              <div class="card-clean-actions" style="justify-content:center;width:100%">
+                <button class="tts-btn" data-speak="${escAttr(cleanEn)}" onclick="speakEl(this)">🔊 다시 듣기</button>
+                <button class="card-swap-pill-btn" onclick="patStudyMode('swap')">🔄 단어 갈아끼우기</button>
+              </div>
             </div>`}
       </div>
       <div class="pat-nav">
