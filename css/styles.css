@@ -847,3 +847,106 @@ button, [onclick], input {
 .fade-in{animation:fadeIn 0.22s ease-out}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.6}}
 .pulse{animation:pulse 0.8s ease-in-out infinite}
+
+/* ══════════ SLOT-SWAPPING DRILL (🔄 단어 갈아끼우기 3연타) ══════════ */
+.swap-wrap{display:flex;flex-direction:column;gap:12px;padding-bottom:16px}
+.swap-frame-box{
+  background:linear-gradient(145deg,rgba(232,201,122,0.11),rgba(18,18,26,0.95));
+  border:1.5px solid rgba(232,201,122,0.32);
+  border-radius:16px;padding:14px 15px;
+}
+.swap-frame-eyebrow{font-size:10px;font-weight:800;color:var(--gold);letter-spacing:0.06em;margin-bottom:4px}
+.swap-frame-formula{
+  font-size:14.5px;font-weight:900;color:#fff;
+  background:rgba(0,0,0,0.35);border:1px solid var(--border2);
+  padding:8px 11px;border-radius:10px;margin-bottom:10px;line-height:1.4;
+}
+.swap-base-row{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding-top:8px;border-top:1px dashed var(--border2);
+}
+.swap-base-texts{flex:1;min-width:0}
+.swap-base-kr{font-size:12px;color:var(--text2);line-height:1.4}
+.swap-base-kr .key{color:var(--gold);font-weight:700}
+.swap-base-en{font-size:13px;font-weight:700;color:var(--cyan);line-height:1.4;margin-top:2px}
+.swap-base-en .key{color:var(--gold)}
+
+.swap-loop-bar{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:10px 12px;border-radius:14px;
+  background:linear-gradient(135deg,rgba(255,110,180,0.14),rgba(167,139,250,0.1));
+  border:1px solid rgba(255,110,180,0.32);flex-wrap:wrap;
+}
+.swap-loop-btn{
+  padding:9px 14px;border-radius:99px;border:none;
+  background:linear-gradient(135deg,var(--pink),var(--purple));color:#fff;
+  font-size:12px;font-weight:800;font-family:'Noto Sans KR',sans-serif;
+  cursor:pointer;display:inline-flex;align-items:center;gap:6px;
+}
+.swap-loop-btn.running{background:var(--red);animation:pulse 0.9s infinite}
+.swap-reveal-all-btn{
+  padding:7px 11px;border-radius:99px;border:1px solid var(--border2);
+  background:var(--bg2);color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;
+}
+
+.swap-list{display:flex;flex-direction:column;gap:10px}
+.swap-item{
+  background:var(--bg2);border:1.5px solid var(--border2);
+  border-radius:15px;padding:14px 15px;cursor:pointer;
+  transition:border-color 0.18s,transform 0.12s,background 0.18s;
+}
+.swap-item:active{transform:scale(0.99)}
+.swap-item.revealed{border-color:rgba(111,207,151,0.38)}
+.swap-item.active-loop{
+  border-color:var(--pink);
+  background:linear-gradient(145deg,rgba(255,110,180,0.1),var(--bg2));
+  box-shadow:0 0 0 2px rgba(255,110,180,0.2);
+}
+.swap-item-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px;flex-wrap:wrap}
+.swap-step-pill{
+  font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:99px;
+  background:rgba(255,110,180,0.14);color:var(--pink);
+}
+.swap-item.revealed .swap-step-pill{background:rgba(111,207,151,0.16);color:var(--green)}
+.swap-hint-pill{
+  font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--gold);
+  background:rgba(232,201,122,0.1);border:1px solid rgba(232,201,122,0.25);
+  padding:2px 8px;border-radius:8px;
+}
+.swap-kr{font-size:15.5px;font-weight:700;color:var(--text);line-height:1.5}
+.swap-hl{
+  color:var(--pink);background:rgba(255,110,180,0.14);
+  padding:1px 5px;border-radius:5px;font-weight:800;
+}
+.swap-prompt-mask{
+  margin-top:9px;padding:9px 11px;border-radius:10px;
+  background:var(--bg3);border:1px dashed var(--border2);
+  font-size:12px;color:var(--text2);text-align:center;
+}
+.swap-en-row{
+  margin-top:10px;padding-top:10px;border-top:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+}
+.swap-en{font-size:15.5px;font-weight:800;color:#fff;line-height:1.45;flex:1}
+.swap-en .swap-hl{color:var(--cyan);background:rgba(0,229,255,0.15)}
+
+.my-swap-box{
+  background:var(--bg2);border:1px solid var(--border2);
+  border-radius:15px;padding:14px;display:flex;flex-direction:column;gap:8px;
+}
+.my-swap-title{font-size:12px;font-weight:800;color:var(--gold);display:flex;justify-content:space-between;align-items:center}
+.my-swap-row{display:flex;gap:6px}
+.my-swap-input{
+  flex:1;padding:10px 12px;border-radius:10px;
+  background:var(--bg3);border:1px solid var(--border2);
+  color:var(--text);font-size:13.5px;outline:none;
+}
+.my-swap-input:focus{border-color:var(--cyan)}
+.card-swap-jump-btn{
+  width:100%;margin-top:10px;padding:10px 14px;border-radius:11px;
+  border:1px solid rgba(255,110,180,0.35);
+  background:linear-gradient(135deg,rgba(255,110,180,0.12),rgba(167,139,250,0.08));
+  color:var(--pink);font-size:12.5px;font-weight:800;
+  font-family:'Noto Sans KR',sans-serif;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:6px;
+}

@@ -51,6 +51,8 @@ let _autoShadow = {
 
 function stopAutoShadow() {
   _autoShadow.running = false;
+  _autoShadow.swapLoop = false;
+  _autoShadow.activeSwapIdx = -1;
   _autoShadow.token++;
   if (_autoShadow.timerId) {
     clearTimeout(_autoShadow.timerId);
@@ -63,6 +65,11 @@ function stopAutoShadow() {
   if (btn) {
     btn.classList.remove('running');
     btn.innerHTML = '▶ 실전 자동 쉐도잉 시작';
+  }
+  const sbtn = document.getElementById('autoSwapBtn');
+  if (sbtn) {
+    sbtn.classList.remove('running');
+    sbtn.innerHTML = '▶ 원문+변주 3연속 자동말하기';
   }
 }
 
@@ -369,6 +376,7 @@ function renderChapterStudy() {
 
   const modeLabels = {
     card: '🎨 연상카드',
+    swap: '🔄 갈아끼우기',
     shadow: '🎙 자동쉐도잉',
     chunk: '🧩 어순조립',
     list: '📋 전체·라디오',
@@ -386,6 +394,7 @@ function renderChapterStudy() {
 
   let bodyHtml = '';
   if (cv.mode === 'card') bodyHtml = renderCardMode(ch);
+  else if (cv.mode === 'swap') bodyHtml = renderSwapMode(ch);
   else if (cv.mode === 'shadow') bodyHtml = renderShadowMode(ch);
   else if (cv.mode === 'chunk') bodyHtml = renderChunkMode(ch);
   else if (cv.mode === 'list') bodyHtml = renderListMode(ch);
@@ -422,6 +431,7 @@ function chSetMode(m) {
   cv.transRevealed = false;
   cv.flashFlipped = false;
   cv.chunkState = null;
+  cv.swapRevealed = {};
   renderChapterStudy();
 }
 
@@ -454,6 +464,9 @@ function renderCardMode(ch) {
         </button>
         ${isDone ? '<span style="font-size:11px;color:var(--green);font-weight:700">✓ 학습됨</span>' : ''}
       </div>
+      <button class="card-swap-jump-btn" onclick="event.stopPropagation();chSetMode('swap')">
+        🔄 이 뼈대로 단어 갈아끼우기 (3연속 응용) →
+      </button>
       <div class="srs-rate-bar" onclick="event.stopPropagation()">
         <button class="srs-btn hard" onclick="chRateAndNext('hard')">😓 어려움 · 복습함</button>
         <button class="srs-btn good" onclick="chRateAndNext('good')">🙂 보통 · 3일뒤</button>
@@ -535,6 +548,313 @@ function chToggleBm(e, key) {
   if (bm[key]) delete bm[key]; else bm[key] = true;
   save();
   renderChapterStudy();
+}
+
+// ════════════════════════════════════════════════════════
+// 1.5 🔄 단어 갈아끼우기 3연속 변주 드릴 (Slot-Swapping)
+// ════════════════════════════════════════════════════════
+function getActiveSwapRevealedMap() {
+  if (state.currentTab === 'pattern' && state.patternView) {
+    if (!state.patternView.swapRevealed) state.patternView.swapRevealed = {};
+    return state.patternView.swapRevealed;
+  }
+  if (!state.chapterView.swapRevealed) state.chapterView.swapRevealed = {};
+  return state.chapterView.swapRevealed;
+}
+
+function renderSwapDrillUI(rawEn, rawKr, itemKey, swapContext, counterLabel, prevFn, nextFn, hasPrev, modeScope) {
+  const swapSet = SlotSwapEngine.getSwapSet(rawEn, rawKr, swapContext);
+  const revMap = getActiveSwapRevealedMap();
+  const allRevealed = swapSet.swaps.every((_, i) => !!revMap[i]);
+  const userCustom = SlotSwapEngine.getUserSwap(itemKey);
+  const isLooping = !!(_autoShadow.running && _autoShadow.swapLoop);
+
+  const itemsHtml = swapSet.swaps.map((sw, idx) => {
+    const isRev = !!revMap[idx];
+    const isActiveLoop = isLooping && _autoShadow.activeSwapIdx === idx;
+    return `
+      <div class="swap-item ${isRev ? 'revealed' : ''} ${isActiveLoop ? 'active-loop' : ''}"
+        onclick="swapRevealOne(${idx}, '${modeScope}')">
+        <div class="swap-item-top">
+          <span class="swap-step-pill">${isRev ? `✓ 변주 ${idx + 1} 입트임 완료` : `⚡ 변주 ${idx + 1} · 단어 교체`}</span>
+          <span class="swap-hint-pill">💡 ${sw.hint}</span>
+        </div>
+        <div class="swap-kr">${sw.kr}</div>
+        ${isRev ? `
+          <div class="swap-en-row">
+            <div class="swap-en">${sw.en}</div>
+            <button class="tts-btn small" data-speak="${escAttr(sw.en)}" onclick="event.stopPropagation();speakEl(this)">🔊 듣기</button>
+          </div>
+        ` : `
+          <div class="swap-prompt-mask">👆 뼈대에 키워드를 넣어 먼저 말해본 뒤 탭해서 확인!</div>
+        `}
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <div class="swap-wrap">
+      <div class="swap-loop-bar">
+        <button id="autoSwapBtn" class="swap-loop-btn ${isLooping ? 'running' : ''}" onclick="toggleAutoSwapLoop('${modeScope}')">
+          ${isLooping ? '⏹ 3연속 루프 중지' : '▶ 원문+변주 3연속 자동말하기'}
+        </button>
+        <button class="swap-reveal-all-btn" onclick="swapToggleAll('${modeScope}', ${swapSet.swaps.length})">
+          ${allRevealed ? '🙈 다시 가리기' : '👀 3개 모두 보기'}
+        </button>
+      </div>
+
+      <div class="shadow-speak-meter" id="shadowSpeakMeter">
+        <div class="ssm-label" id="shadowSpeakLabel">👄 소리 내어 말해보세요!</div>
+        <div class="ssm-track"><div class="ssm-fill" id="shadowSpeakFill"></div></div>
+      </div>
+
+      <div class="swap-frame-box">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <div class="swap-frame-eyebrow">🦴 고정 뼈대 공식 (이 틀은 그대로 유지!)</div>
+          <span style="font-size:11px;color:var(--text2);font-family:'JetBrains Mono',monospace">${counterLabel}</span>
+        </div>
+        <div class="swap-frame-formula">${swapSet.frame}</div>
+        <div class="swap-base-row">
+          <div class="swap-base-texts">
+            <div class="swap-base-kr">원문: ${rawKr}</div>
+            <div class="swap-base-en">${rawEn}</div>
+          </div>
+          <button class="tts-btn small" data-speak="${escAttr(rawEn)}" onclick="speakEl(this)">🔊 원문</button>
+        </div>
+      </div>
+
+      <div class="swap-list">${itemsHtml}</div>
+
+      <div class="my-swap-box">
+        <div class="my-swap-title">
+          <span>✍️ 내 일상 단어로 직접 갈아끼우기</span>
+          <button class="swap-reveal-all-btn" style="padding:3px 8px;font-size:10px"
+            data-starter="${escAttr(swapSet.starter)}"
+            onclick="swapFillStarter(this)">+ 뼈대 채우기</button>
+        </div>
+        <div class="my-swap-row">
+          <input id="mySwapInput" class="my-swap-input" type="text"
+            value="${escAttr(userCustom)}"
+            placeholder="예: ${escAttr(swapSet.starter)}..."
+            onchange="SlotSwapEngine.saveUserSwap('${itemKey}', this.value)" />
+          <button class="tts-btn small" onclick="swapPlayMySentence('${itemKey}', this)">🔊 내 문장 발음</button>
+        </div>
+      </div>
+
+      <div class="card-nav" style="margin-top:2px">
+        <button class="cnav-btn" onclick="${prevFn}" ${!hasPrev ? 'disabled' : ''}>← 이전</button>
+        <button class="cnav-btn primary" onclick="${nextFn}">다음 문장 변주 →</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderSwapMode(ch) {
+  const cv = state.chapterView;
+  const s = ch.sentences[cv.sentIdx];
+  const srsKey = getCurrentSrsKey();
+  return renderSwapDrillUI(
+    s.en, s.kr, srsKey,
+    { chapterPattern: ch.pattern },
+    `${cv.sentIdx + 1}/${ch.sentences.length}`,
+    'swapChPrev()', 'swapChNext()', cv.sentIdx > 0,
+    'chapter'
+  );
+}
+
+function swapRevealOne(idx, scope) {
+  stopAutoShadow();
+  const revMap = getActiveSwapRevealedMap();
+  revMap[idx] = true;
+
+  let rawEn = '', rawKr = '', ctx = {};
+  if (scope === 'pattern') {
+    const pv = state.patternView;
+    const p = PATTERNS[pv.dayIdx];
+    const card = p.cards[pv.cardIdx];
+    rawEn = card.en.replace('🔀 ', '');
+    rawKr = card.kr.replace('🔀 ', '');
+    ctx = { patternTitle: p.pattern, siblingCards: p.cards };
+  } else {
+    const cv = state.chapterView;
+    const { ch, completed } = getChapterData();
+    const s = ch.sentences[cv.sentIdx];
+    rawEn = s.en;
+    rawKr = s.kr;
+    ctx = { chapterPattern: ch.pattern };
+    if (cv.type !== 'review' && revMap[0] && revMap[1] && revMap[2]) {
+      completed[`${cv.chIdx}-${cv.sentIdx}`] = true;
+    }
+  }
+  const swapSet = SlotSwapEngine.getSwapSet(rawEn, rawKr, ctx);
+  recordStudyActivity();
+
+  if (scope === 'pattern') renderPatternStudy();
+  else renderChapterStudy();
+
+  if (swapSet.swaps[idx]) {
+    AudioEngine.speak(swapSet.swaps[idx].en);
+  }
+}
+
+function swapToggleAll(scope, count) {
+  stopAutoShadow();
+  const revMap = getActiveSwapRevealedMap();
+  const allOn = Array.from({ length: count }, (_, i) => !!revMap[i]).every(Boolean);
+  for (let i = 0; i < count; i++) revMap[i] = !allOn;
+  if (scope === 'pattern') renderPatternStudy();
+  else renderChapterStudy();
+}
+
+function swapFillStarter(btn) {
+  const inp = document.getElementById('mySwapInput');
+  if (!inp) return;
+  const starter = btn.getAttribute('data-starter') || '';
+  if (!inp.value.trim()) inp.value = starter;
+  inp.focus();
+}
+
+function swapPlayMySentence(itemKey, btn) {
+  const inp = document.getElementById('mySwapInput');
+  if (!inp || !inp.value.trim()) {
+    alert('먼저 나만의 응용 영어 문장을 입력해보세요!');
+    return;
+  }
+  const val = inp.value.trim();
+  SlotSwapEngine.saveUserSwap(itemKey, val);
+  recordStudyActivity();
+  AudioEngine.speak(val, btn);
+}
+
+function swapChPrev() {
+  stopAutoShadow();
+  if (state.chapterView.sentIdx > 0) {
+    state.chapterView.sentIdx--;
+    state.chapterView.swapRevealed = {};
+    renderChapterStudy();
+  }
+}
+
+function swapChNext() {
+  stopAutoShadow();
+  const { ch, completed } = getChapterData();
+  const cv = state.chapterView;
+  if (cv.type !== 'review') {
+    completed[`${cv.chIdx}-${cv.sentIdx}`] = true;
+    save();
+  }
+  if (cv.sentIdx < ch.sentences.length - 1) {
+    cv.sentIdx++;
+    cv.swapRevealed = {};
+    renderChapterStudy();
+  } else {
+    const body = document.getElementById('study-body');
+    if (body) body.innerHTML = `<div class="study-complete">
+      <div class="study-complete-icon">🔄</div>
+      <div class="study-complete-title">단어 갈아끼우기 완주!</div>
+      <div class="study-complete-sub">모든 문장의 뼈대에 새 단어를 끼워 실전 응용력을 완성했어요!</div>
+      <button class="shadow-btn next" style="margin:0 auto" onclick="state.chapterView.sentIdx=0;state.chapterView.swapRevealed={};renderChapterStudy()">🔄 처음부터 다시</button>
+    </div>`;
+  }
+}
+
+async function toggleAutoSwapLoop(scope) {
+  if (_autoShadow.running && _autoShadow.swapLoop) {
+    stopAutoShadow();
+    if (scope === 'pattern') renderPatternStudy();
+    else renderChapterStudy();
+    return;
+  }
+
+  stopAutoShadow();
+  _autoShadow.running = true;
+  _autoShadow.swapLoop = true;
+  _autoShadow.activeSwapIdx = -1;
+  const myToken = ++_autoShadow.token;
+
+  while (_autoShadow.running && _autoShadow.token === myToken) {
+    let rawEn = '', rawKr = '', ctx = {};
+    if (scope === 'pattern') {
+      const pv = state.patternView;
+      if (!pv) break;
+      const p = PATTERNS[pv.dayIdx];
+      const card = p.cards[pv.cardIdx];
+      rawEn = card.en.replace('🔀 ', '');
+      rawKr = card.kr.replace('🔀 ', '');
+      ctx = { patternTitle: p.pattern, siblingCards: p.cards };
+    } else {
+      const cv = state.chapterView;
+      if (!cv) break;
+      const { ch } = getChapterData();
+      const s = ch.sentences[cv.sentIdx];
+      rawEn = s.en;
+      rawKr = s.kr;
+      ctx = { chapterPattern: ch.pattern };
+    }
+
+    const swapSet = SlotSwapEngine.getSwapSet(rawEn, rawKr, ctx);
+    const revMap = getActiveSwapRevealedMap();
+
+    // 0. Speak Base Anchor first
+    _autoShadow.activeSwapIdx = -1;
+    if (scope === 'pattern') renderPatternStudy(); else renderChapterStudy();
+    const baseInfo = await AudioEngine.speak(rawEn);
+    if (!_autoShadow.running || _autoShadow.token !== myToken) break;
+    const baseWait = Math.max(2100, Math.min(7000, ((baseInfo && baseInfo.duration) || 2.3) * 1150));
+    const okBase = await waitWithMeter(Math.round(baseWait), '👄 원문 뼈대를 먼저 큰 소리로 말해보세요!', myToken);
+    if (!okBase) break;
+
+    // 1..3. Iterate through the 3 Slot Swaps!
+    for (let i = 0; i < swapSet.swaps.length; i++) {
+      if (!_autoShadow.running || _autoShadow.token !== myToken) break;
+      _autoShadow.activeSwapIdx = i;
+      revMap[i] = true;
+      if (scope === 'pattern') renderPatternStudy(); else renderChapterStudy();
+
+      const swInfo = await AudioEngine.speak(swapSet.swaps[i].en);
+      if (!_autoShadow.running || _autoShadow.token !== myToken) break;
+      const swWait = Math.max(2100, Math.min(7000, ((swInfo && swInfo.duration) || 2.3) * 1200));
+      const okSw = await waitWithMeter(Math.round(swWait), `👄 변주 ${i + 1}/3 — 단어를 갈아끼워 바로 말하세요!`, myToken);
+      if (!okSw) break;
+    }
+
+    if (!_autoShadow.running || _autoShadow.token !== myToken) break;
+    recordStudyActivity();
+
+    // Advance to next sentence!
+    if (scope === 'pattern') {
+      const pv = state.patternView;
+      const p = PATTERNS[pv.dayIdx];
+      if (pv.cardIdx < p.cards.length - 1) {
+        pv.cardIdx++;
+        pv.swapRevealed = {};
+        _autoShadow.activeSwapIdx = -1;
+        renderPatternStudy();
+      } else {
+        stopAutoShadow();
+        if (!state.completedP.includes(p.id)) { state.completedP.push(p.id); save(); }
+        renderPatternHome();
+        break;
+      }
+    } else {
+      const cv = state.chapterView;
+      const { ch, completed } = getChapterData();
+      if (cv.type !== 'review') {
+        completed[`${cv.chIdx}-${cv.sentIdx}`] = true;
+        save();
+      }
+      if (cv.sentIdx < ch.sentences.length - 1) {
+        cv.sentIdx++;
+        cv.swapRevealed = {};
+        _autoShadow.activeSwapIdx = -1;
+        renderChapterStudy();
+      } else {
+        stopAutoShadow();
+        swapChNext();
+        break;
+      }
+    }
+  }
 }
 
 // ════════════════════════════════════════════════════════
@@ -1441,6 +1761,7 @@ function renderPatternStudy() {
 
   const modeLabels = {
     card: '🎨 연상카드',
+    swap: '🔄 갈아끼우기',
     shadow: '🎙 자동쉐도잉',
     chunk: '🧩 어순조립',
     pronun: '🎤 발음체크',
@@ -1468,13 +1789,24 @@ function renderPatternStudy() {
         <div class="pat-card-en">${backText}</div>
         ${!pv.flipped
           ? '<div class="pat-tap">탭하여 뒤집기 + 원어민 발음 듣기 👆</div>'
-          : `<button class="tts-btn" style="margin-top:14px" data-speak="${escAttr(cleanEn)}" onclick="event.stopPropagation();speakEl(this)">🔊 원어민 발음 듣기</button>`}
+          : `<div style="display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:14px;width:100%">
+              <button class="tts-btn" data-speak="${escAttr(cleanEn)}" onclick="event.stopPropagation();speakEl(this)">🔊 원어민 발음 듣기</button>
+              <button class="card-swap-jump-btn" style="margin-top:2px" onclick="event.stopPropagation();patStudyMode('swap')">🔄 이 패턴 단어 갈아끼우기 (3연속) →</button>
+            </div>`}
       </div>
       <div class="pat-nav">
         <button class="pat-prev" onclick="patPrev()" ${pv.cardIdx === 0 ? 'disabled' : ''}>←</button>
         <button class="pat-next" onclick="patNext()">${pv.cardIdx === p.cards.length - 1 ? (isDone ? '✓ 완료됨' : '오늘 패턴 완료 🎉') : '다음 예문 →'}</button>
       </div>
     </div>`;
+  } else if (sm === 'swap') {
+    bodyHtml = renderSwapDrillUI(
+      cleanEn, cleanKr, recKey,
+      { patternTitle: p.pattern, siblingCards: p.cards },
+      `${pv.cardIdx + 1}/${p.cards.length}`,
+      'patSwapPrev()', 'patSwapNext()', pv.cardIdx > 0,
+      'pattern'
+    );
   } else if (sm === 'shadow') {
     const step = pv.shadowStep || 1;
     const hasRec = VoiceRecorder.hasRecording(recKey);
@@ -1647,7 +1979,27 @@ function patStudyMode(m) {
   state.patternView.shadowStep = 1;
   state.patternView.flashFlipped = false;
   state.patternView.chunkState = null;
+  state.patternView.swapRevealed = {};
   renderPatternStudy();
+}
+function patSwapPrev() {
+  stopAutoShadow();
+  const pv = state.patternView;
+  if (pv.cardIdx > 0) { pv.cardIdx--; pv.swapRevealed = {}; renderPatternStudy(); }
+}
+function patSwapNext() {
+  stopAutoShadow();
+  const pv = state.patternView;
+  const p = PATTERNS[pv.dayIdx];
+  recordStudyActivity();
+  if (pv.cardIdx < p.cards.length - 1) {
+    pv.cardIdx++;
+    pv.swapRevealed = {};
+    renderPatternStudy();
+  } else {
+    if (!state.completedP.includes(p.id)) { state.completedP.push(p.id); save(); }
+    renderPatternHome();
+  }
 }
 function patShadowNext() {
   const pv = state.patternView;

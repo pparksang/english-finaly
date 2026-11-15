@@ -21,6 +21,7 @@ const path = require('path');
 const root = process.argv[1];
 const dataCode = fs.readFileSync(path.join(root, 'js/data.js'), 'utf8');
 const { AudioEngine } = require(path.join(root, 'js/audio.js'));
+const { SlotSwapEngine } = require(path.join(root, 'js/swaps.js'));
 
 const fn = new Function(dataCode + '\nreturn { GYEOLLON_CHAPTERS, MOUSE_CHAPTERS, PATTERNS, SPEAKING_TOPICS, SPEAKING_SCRIPTS, FILLERS };');
 const d = fn();
@@ -74,6 +75,11 @@ for (const t of d.SPEAKING_TOPICS) {
 add("I have had many experiences related to this topic. One memory that stands out is when I really thought deeply about it. It changed my perspective a lot.");
 add("My view on this has changed over the years. I used to think differently, but now I understand it better. I think we all grow and change over time.");
 add("To wrap up, this topic means a lot to me. I'm still learning every day. I hope to keep growing. Thank you for listening to me today.");
+
+// Slot-Swapping curated variation sentences
+for (const swEn of SlotSwapEngine.getAllCuratedSpokenPhrases()) {
+  add(swEn);
+}
 
 console.log(JSON.stringify(Array.from(jobs.entries())));
 """
